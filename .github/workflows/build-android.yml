@@ -1,0 +1,38 @@
+name: Build Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-android:
+    name: Build AR Android applications
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Build Android APKs with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: .
+          unityVersion: 2022.3.20f1
+          targetPlatform: Android
+          buildMethod: ProjectBuilder.BuildAllCli
+          allowDirtyBuild: true
+          androidAppBundle: false
+
+      - name: Upload APK files
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AR-Student-Android-APKs
+          path: Builds/*.apk
+          if-no-files-found: error
+          retention-days: 14
