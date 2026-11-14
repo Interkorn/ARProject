@@ -13,23 +13,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check Unity license secrets
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$UNITY_LICENSE" ] && missing="$missing UNITY_LICENSE"
+          [ -z "$UNITY_EMAIL" ] && missing="$missing UNITY_EMAIL"
+          [ -z "$UNITY_PASSWORD" ] && missing="$missing UNITY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы секреты репозитория:$missing (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h /
+
       - name: Checkout project
         uses: actions/checkout@v4
+
+      - name: Prepare Unity project layout
+        run: |
+          mkdir -p Assets/Scripts/Common Assets/Scripts/Furniture Assets/Scripts/Game Assets/Editor Packages ProjectSettings
+          move() { if [ -f "$1" ]; then mv "$1" "$2"; fi; }
+          move ARRig.cs Assets/Scripts/Common/
+          move Models.cs Assets/Scripts/Common/
+          move UIKit.cs Assets/Scripts/Common/
+          move Sfx.cs Assets/Scripts/Common/
+          move FurnitureApp.cs Assets/Scripts/Furniture/
+          move CoinGame.cs Assets/Scripts/Game/
+          move ProjectBuilder.cs Assets/Editor/
+          move manifest.json Packages/
+          move ProjectVersion.txt ProjectSettings/
+          ls -R Assets Packages ProjectSettings
 
       - name: Build Android APKs with Unity
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
           unityVersion: 2022.3.20f1
           targetPlatform: Android
           buildMethod: ProjectBuilder.BuildAllCli
           allowDirtyBuild: true
-          androidAppBundle: false
+          androidExportType: androidPackage
 
       - name: Upload APK files
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AR-Student-Android-APKs
